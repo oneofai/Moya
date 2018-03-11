@@ -1,16 +1,19 @@
-version: 2
-jobs:
-  build:
-    working_directory: ~/Moya/Moya
-    parallelism: 1
-    shell: /bin/bash --login
-    environment:
-      CIRCLE_ARTIFACTS: /tmp/circleci-artifacts
-      CIRCLE_TEST_REPORTS: /tmp/circleci-test-results
-      LANG: en_US.UTF-8
-      BUNDLE_PATH: vendor/bundle
+defaults: &defaults
+  working_directory: ~/Moya/Moya
+  parallelism: 1
+  shell: /bin/bash --login
+  environment:
+    CIRCLE_ARTIFACTS: /tmp/circleci-artifacts
+    CIRCLE_TEST_REPORTS: /tmp/circleci-test-results
+    LANG: en_US.UTF-8
+    BUNDLE_PATH: vendor/bundle
     macos:
       xcode: '9.2.0'
+
+version: 2
+jobs:
+  setup:
+    <<: *defaults
     steps:
       - checkout
       - run: mkdir -p $CIRCLE_ARTIFACTS $CIRCLE_TEST_REPORTS
@@ -22,7 +25,7 @@ jobs:
       - run:
           name: Set Ruby Version
           command: echo "ruby-2.4" > ~/.ruby-version
-      - run: 
+      - run:
           name: Fetch CocoaPods Specs
           command: curl -sS https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash
       - run:
@@ -37,7 +40,7 @@ jobs:
           environment:
             BUNDLE_JOBS: 4
             BUNDLE_RETRY: 3
-      - run: 
+      - run:
           name: Bootstrap Carthage
           command: scripts/bootstrap-if-needed.sh
       - save_cache:
@@ -45,21 +48,6 @@ jobs:
           paths:
             - vendor/bundle
             - Carthage
-      - run: 
-          name: Test on iOS
-          command: rake test:ios
-      - run: 
-          name: Test on macOS
-          command: rake test:macos
-      - run:
-          name: Test on tvOS
-          command: rake test:tvos
-      - run: 
-          name: Test with Carthage
-          command: rake test:carthage
-      - run:
-          name: Build Example Project
-          command: rake build_example
       - run:
           name: Run Danger
           command: bundle exec danger
@@ -75,3 +63,30 @@ jobs:
           path: /tmp/circleci-artifacts
       - store_artifacts:
           path: /tmp/circleci-test-results
+  test:
+    <<: *defaults
+    steps:
+      - run:
+          name: Test on iOS
+          command: rake test:ios
+      - run:
+          name: Test on macOS
+          command: rake test:macos
+      - run:
+          name: Test on tvOS
+          command: rake test:tvos
+      - run:
+          name: Test with Carthage
+          command: rake test:carthage
+      - run:
+          name: Build Example Project
+          command: rake build_example
+
+workflows:
+  version: 2
+  moya_workflow:
+    jobs:
+      - setup
+      - test:
+        requires:
+          - setup
